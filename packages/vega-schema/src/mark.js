@@ -69,6 +69,7 @@ const mark = object({
   style: styleRef,
   key: stringType,
   clip: markclipRef,
+  enabled: booleanType,
   sort: compareRef,
   interactive: booleanOrSignal,
   encode: def('encode'),

@@ -81,6 +81,10 @@ function draw(context, scene, bounds) {
           gy = group.y || 0,
           fore = group.strokeForeground,
           opacity = group.opacity == null ? 1 : group.opacity;
+    
+    // If the group is not enabled, skip...   
+    console.log("group.enabled",group.enabled);   
+    if(group.enabled == false) return;     
 
     // draw group background
     if ((group.stroke || group.fill) && opacity) {
