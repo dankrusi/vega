@@ -22,9 +22,5 @@
     "test": "tape 'test/**/*-test.js'",
     "prepublishOnly": "yarn test && yarn build",
     "postpublish": "git push && git push --tags"
-  },
-  "browser": {
-    "./build/vega-canvas.node.js": "./build/vega-canvas.js",
-    "./index.js": "./index.browser.js"
   }
 }
