@@ -24,6 +24,7 @@ function estimateWidth(item, text) {
 }
 
 function _estimateWidth(text, currentFontHeight) {
+  console.warn("***WARNING: _estimateWidth is being used - this is not recommended (this means you don't have canvas package installed)");
   return ~~(0.8 * text.length * currentFontHeight);
 }
 
