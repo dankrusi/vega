@@ -13858,7 +13858,6 @@
     }
   } catch (error) {
     // do nothing
-    console.warn("Could not load the node-canvas package (via require('canvas')). Rendering behaviour is undefined without the canvas package, as fonts cannot be measured.");
   }
 
   function nodeCanvas(w, h, type) {
