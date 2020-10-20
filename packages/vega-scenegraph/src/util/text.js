@@ -20,10 +20,11 @@ function useCanvas(use) {
 
 // make dumb, simple estimate if no canvas is available
 function estimateWidth(item, text) {
-  return _estimateWidth(textValue(item, text), fontSize(item));
+  return _estimateWidth(textValue(item, text), item);
 }
 
-function _estimateWidth(text, currentFontHeight) {
+function _estimateWidth(text, item) {
+  const currentFontHeight = fontSize(item);
   console.warn("***WARNING: _estimateWidth is being used - this is not recommended (this means you don't have canvas package installed)");
   return ~~(0.8 * text.length * currentFontHeight);
 }
@@ -31,15 +32,36 @@ function _estimateWidth(text, currentFontHeight) {
 // measure text width if canvas is available
 function measureWidth(item, text) {
   return fontSize(item) <= 0 || !(text = textValue(item, text)) ? 0
-    : _measureWidth(text, font(item));
+    : _measureWidth(text, item);
 }
 
-function _measureWidth(text, currentFont) {
+function _getMeasureWidthAdjustmentForSize(text, size) {
+  // Size is in pixels
+  // For very small fonts, we get a small adjustment
+  // This compensates for issues with differences between different SVG text renderers
+  const minFontSizeToAdjust = 6;
+  const maxFontSizeToAdjust = 20;
+  const maxSizeAdjustment = 4;
+  if(size >= minFontSizeToAdjust && size <= maxFontSizeToAdjust) {
+    var adjustmentInPercent = 1.0 - (size-minFontSizeToAdjust)/(maxFontSizeToAdjust-minFontSizeToAdjust);
+    var adjustment = Math.ceil(maxSizeAdjustment * adjustmentInPercent);
+    //console.log(size,adjustmentInPercent,">>",adjustment);
+    return adjustment;
+  } else {
+    return 0;
+  }
+}
+function _getMeasureWidthAdjustmentForItem(text, item) {
+  return _getMeasureWidthAdjustmentForSize(text, fontSize(item));
+}
+
+function _measureWidth(text, item) {
+  const currentFont = font(item);
   const key = `(${currentFont}) ${text}`;
   let width = widthCache.get(key);
   if (width === undefined) {
     context.font = currentFont;
-    width = context.measureText(text).width;
+    width = context.measureText(text).width + _getMeasureWidthAdjustmentForItem(text,item);
     widthCache.set(key, width);
   }
   return width;
@@ -78,12 +100,10 @@ export function textValue(item, line) {
 function widthGetter(item) {
   if (textMetrics.width === measureWidth) {
     // we are using canvas
-    const currentFont = font(item);
-    return text => _measureWidth(text, currentFont);
+    return text => _measureWidth(text, item);
   } else {
     // we are relying on estimates
-    const currentFontHeight = fontSize(item);
-    return text => _estimateWidth(text, currentFontHeight);
+    return text => _estimateWidth(text, item);
   }
 }
 

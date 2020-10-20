@@ -2801,16 +2801,10 @@
     return sum;
   }
 
-  function formatDecimal(x) {
-    return Math.abs(x = Math.round(x)) >= 1e21
-        ? x.toLocaleString("en").replace(/,/g, "")
-        : x.toString(10);
-  }
-
   // Computes the decimal coefficient and exponent of the specified number x with
   // significant digits p, where x is positive and p is in [1, 21] or undefined.
-  // For example, formatDecimalParts(1.23) returns ["123", 0].
-  function formatDecimalParts(x, p) {
+  // For example, formatDecimal(1.23) returns ["123", 0].
+  function formatDecimal(x, p) {
     if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
     var i, coefficient = x.slice(0, i);
 
@@ -2823,7 +2817,7 @@
   }
 
   function exponent(x) {
-    return x = formatDecimalParts(Math.abs(x)), x ? x[1] : NaN;
+    return x = formatDecimal(Math.abs(x)), x ? x[1] : NaN;
   }
 
   function formatGroup(grouping, thousands) {
@@ -2854,51 +2848,42 @@
   }
 
   // [[fill]align][sign][symbol][0][width][,][.precision][~][type]
-  var re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
+  var re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?(\*(\d+(\.\d*)?))?$/i;
 
   function formatSpecifier(specifier) {
-    if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
-    var match;
-    return new FormatSpecifier({
-      fill: match[1],
-      align: match[2],
-      sign: match[3],
-      symbol: match[4],
-      zero: match[5],
-      width: match[6],
-      comma: match[7],
-      precision: match[8] && match[8].slice(1),
-      trim: match[9],
-      type: match[10]
-    });
+    return new FormatSpecifier(specifier);
   }
 
   formatSpecifier.prototype = FormatSpecifier.prototype; // instanceof
 
   function FormatSpecifier(specifier) {
-    this.fill = specifier.fill === undefined ? " " : specifier.fill + "";
-    this.align = specifier.align === undefined ? ">" : specifier.align + "";
-    this.sign = specifier.sign === undefined ? "-" : specifier.sign + "";
-    this.symbol = specifier.symbol === undefined ? "" : specifier.symbol + "";
-    this.zero = !!specifier.zero;
-    this.width = specifier.width === undefined ? undefined : +specifier.width;
-    this.comma = !!specifier.comma;
-    this.precision = specifier.precision === undefined ? undefined : +specifier.precision;
-    this.trim = !!specifier.trim;
-    this.type = specifier.type === undefined ? "" : specifier.type + "";
+    if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
+    var match;
+    this.fill = match[1] || " ";
+    this.align = match[2] || ">";
+    this.sign = match[3] || "-";
+    this.symbol = match[4] || "";
+    this.zero = !!match[5];
+    this.width = match[6] && +match[6];
+    this.comma = !!match[7];
+    this.precision = match[8] && +match[8].slice(1);
+    this.trim = !!match[9];
+    this.type = match[10] || "";
+    this.scale = parseFloat(match[12]) || 1;
   }
 
-  FormatSpecifier.prototype.toString = function() {
+  FormatSpecifier.prototype.toString = function () {
     return this.fill
-        + this.align
-        + this.sign
-        + this.symbol
-        + (this.zero ? "0" : "")
-        + (this.width === undefined ? "" : Math.max(1, this.width | 0))
-        + (this.comma ? "," : "")
-        + (this.precision === undefined ? "" : "." + Math.max(0, this.precision | 0))
-        + (this.trim ? "~" : "")
-        + this.type;
+      + this.align
+      + this.sign
+      + this.symbol
+      + (this.zero ? "0" : "")
+      + (this.width == null ? "" : Math.max(1, this.width | 0))
+      + (this.comma ? "," : "")
+      + (this.precision == null ? "" : "." + Math.max(0, this.precision | 0))
+      + (this.trim ? "~" : "")
+      + this.type
+      + "*" + this.scale;
   };
 
   // Trims insignificant zeros, e.g., replaces 1.2000k with 1.2k.
@@ -2907,7 +2892,7 @@
       switch (s[i]) {
         case ".": i0 = i1 = i; break;
         case "0": if (i0 === 0) i0 = i; i1 = i; break;
-        default: if (!+s[i]) break out; if (i0 > 0) i0 = 0; break;
+        default: if (i0 > 0) { if (!+s[i]) break out; i0 = 0; } break;
       }
     }
     return i0 > 0 ? s.slice(0, i0) + s.slice(i1 + 1) : s;
@@ -2916,7 +2901,7 @@
   var prefixExponent;
 
   function formatPrefixAuto(x, p) {
-    var d = formatDecimalParts(x, p);
+    var d = formatDecimal(x, p);
     if (!d) return x + "";
     var coefficient = d[0],
         exponent = d[1],
@@ -2925,11 +2910,11 @@
     return i === n ? coefficient
         : i > n ? coefficient + new Array(i - n + 1).join("0")
         : i > 0 ? coefficient.slice(0, i) + "." + coefficient.slice(i)
-        : "0." + new Array(1 - i).join("0") + formatDecimalParts(x, Math.max(0, p + i - 1))[0]; // less than 1y!
+        : "0." + new Array(1 - i).join("0") + formatDecimal(x, Math.max(0, p + i - 1))[0]; // less than 1y!
   }
 
   function formatRounded(x, p) {
-    var d = formatDecimalParts(x, p);
+    var d = formatDecimal(x, p);
     if (!d) return x + "";
     var coefficient = d[0],
         exponent = d[1];
@@ -2939,84 +2924,83 @@
   }
 
   var formatTypes = {
-    "%": (x, p) => (x * 100).toFixed(p),
-    "b": (x) => Math.round(x).toString(2),
-    "c": (x) => x + "",
-    "d": formatDecimal,
-    "e": (x, p) => x.toExponential(p),
-    "f": (x, p) => x.toFixed(p),
-    "g": (x, p) => x.toPrecision(p),
-    "o": (x) => Math.round(x).toString(8),
-    "p": (x, p) => formatRounded(x * 100, p),
+    "%": function(x, p) { return (x * 100).toFixed(p); },
+    "b": function(x) { return Math.round(x).toString(2); },
+    "c": function(x) { return x + ""; },
+    "d": function(x) { return Math.round(x).toString(10); },
+    "e": function(x, p) { return x.toExponential(p); },
+    "f": function(x, p) { return x.toFixed(p); },
+    "g": function(x, p) { return x.toPrecision(p); },
+    "o": function(x) { return Math.round(x).toString(8); },
+    "p": function(x, p) { return formatRounded(x * 100, p); },
     "r": formatRounded,
     "s": formatPrefixAuto,
-    "X": (x) => Math.round(x).toString(16).toUpperCase(),
-    "x": (x) => Math.round(x).toString(16)
+    "X": function(x) { return Math.round(x).toString(16).toUpperCase(); },
+    "x": function(x) { return Math.round(x).toString(16); }
   };
 
   function identity$2(x) {
     return x;
   }
 
-  var map = Array.prototype.map,
-      prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
+  var prefixes = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T", "P", "E", "Z", "Y"];
 
-  function d3_formatLocale(locale) {
-    var group = locale.grouping === undefined || locale.thousands === undefined ? identity$2 : formatGroup(map.call(locale.grouping, Number), locale.thousands + ""),
-        currencyPrefix = locale.currency === undefined ? "" : locale.currency[0] + "",
-        currencySuffix = locale.currency === undefined ? "" : locale.currency[1] + "",
-        decimal = locale.decimal === undefined ? "." : locale.decimal + "",
-        numerals = locale.numerals === undefined ? identity$2 : formatNumerals(map.call(locale.numerals, String)),
-        percent = locale.percent === undefined ? "%" : locale.percent + "",
-        minus = locale.minus === undefined ? "−" : locale.minus + "",
-        nan = locale.nan === undefined ? "NaN" : locale.nan + "";
+  function d3_formatLocale (locale) {
+    var group = locale.grouping && locale.thousands ? formatGroup(locale.grouping, locale.thousands) : identity$2,
+      currency = locale.currency,
+      decimal = locale.decimal,
+      numerals = locale.numerals ? formatNumerals(locale.numerals) : identity$2,
+      percent = locale.percent || "%";
 
     function newFormat(specifier) {
       specifier = formatSpecifier(specifier);
 
       var fill = specifier.fill,
-          align = specifier.align,
-          sign = specifier.sign,
-          symbol = specifier.symbol,
-          zero = specifier.zero,
-          width = specifier.width,
-          comma = specifier.comma,
-          precision = specifier.precision,
-          trim = specifier.trim,
-          type = specifier.type;
+        align = specifier.align,
+        sign = specifier.sign,
+        symbol = specifier.symbol,
+        zero = specifier.zero,
+        width = specifier.width,
+        comma = specifier.comma,
+        precision = specifier.precision,
+        trim = specifier.trim,
+        type = specifier.type,
+        scale = specifier.scale;
 
       // The "n" type is an alias for ",g".
       if (type === "n") comma = true, type = "g";
 
       // The "" type, and any invalid type, is an alias for ".12~g".
-      else if (!formatTypes[type]) precision === undefined && (precision = 12), trim = true, type = "g";
+      else if (!formatTypes[type]) precision == null && (precision = 12), trim = true, type = "g";
 
       // If zero fill is specified, padding goes after sign and before digits.
       if (zero || (fill === "0" && align === "=")) zero = true, fill = "0", align = "=";
 
       // Compute the prefix and suffix.
       // For SI-prefix, the suffix is lazily computed.
-      var prefix = symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
-          suffix = symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "";
+      var prefix = symbol === "$" ? currency[0] : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
+        suffix = symbol === "$" ? currency[1] : /[%p]/.test(type) ? percent : "";
 
       // What format function should we use?
       // Is this an integer type?
       // Can this type generate exponential notation?
       var formatType = formatTypes[type],
-          maybeSuffix = /[defgprs%]/.test(type);
+        maybeSuffix = /[defgprs%]/.test(type);
 
       // Set the default precision if not specified,
       // or clamp the specified precision to the supported range.
       // For significant precision, it must be in [1, 21].
       // For fixed precision, it must be in [0, 20].
-      precision = precision === undefined ? 6
-          : /[gprs]/.test(type) ? Math.max(1, Math.min(21, precision))
+      precision = precision == null ? 6
+        : /[gprs]/.test(type) ? Math.max(1, Math.min(21, precision))
           : Math.max(0, Math.min(20, precision));
 
       function format(value) {
         var valuePrefix = prefix,
-            valueSuffix = suffix,
-            i, n, c;
+          valueSuffix = suffix,
+          i, n, c;
+
+        value *= scale;
 
         if (type === "c") {
           valueSuffix = formatType(value) + valueSuffix;
@@ -3024,20 +3008,18 @@
         } else {
           value = +value;
 
-          // Determine the sign. -0 is not less than 0, but 1 / -0 is!
-          var valueNegative = value < 0 || 1 / value < 0;
-
           // Perform the initial formatting.
-          value = isNaN(value) ? nan : formatType(Math.abs(value), precision);
+          var valueNegative = value < 0;
+          value = formatType(Math.abs(value), precision);
 
           // Trim insignificant zeros.
           if (trim) value = formatTrim(value);
 
-          // If a negative value rounds to zero after formatting, and no explicit positive sign is requested, hide the sign.
-          if (valueNegative && +value === 0 && sign !== "+") valueNegative = false;
+          // If a negative value rounds to zero during formatting, treat as positive.
+          if (valueNegative && +value === 0) valueNegative = false;
 
           // Compute the prefix and suffix.
-          valuePrefix = (valueNegative ? (sign === "(" ? sign : minus) : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
+          valuePrefix = (valueNegative ? (sign === "(" ? sign : "-") : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
           valueSuffix = (type === "s" ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
 
           // Break the formatted value into the integer “value” part that can be
@@ -3059,7 +3041,7 @@
 
         // Compute the padding.
         var length = valuePrefix.length + value.length + valueSuffix.length,
-            padding = length < width ? new Array(width - length + 1).join(fill) : "";
+          padding = length < width ? new Array(width - length + 1).join(fill) : "";
 
         // If the fill character is "0", grouping is applied after padding.
         if (comma && zero) value = group(padding + value, padding.length ? width - valueSuffix.length : Infinity), padding = "";
@@ -3075,7 +3057,7 @@
         return numerals(value);
       }
 
-      format.toString = function() {
+      format.toString = function () {
         return specifier + "";
       };
 
@@ -3084,10 +3066,10 @@
 
     function formatPrefix(specifier, value) {
       var f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier)),
-          e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
-          k = Math.pow(10, -e),
-          prefix = prefixes[8 + e / 3];
-      return function(value) {
+        e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
+        k = Math.pow(10, -e),
+        prefix = prefixes[8 + e / 3];
+      return function (value) {
         return f(k * value) + prefix;
       };
     }
@@ -3103,6 +3085,7 @@
   var formatPrefix;
 
   defaultLocale({
+    decimal: ".",
     thousands: ",",
     grouping: [3],
     currency: ["$", ""]
@@ -15129,10 +15112,11 @@
 
   // make dumb, simple estimate if no canvas is available
   function estimateWidth(item, text) {
-    return _estimateWidth(textValue(item, text), fontSize(item));
+    return _estimateWidth(textValue(item, text), item);
   }
 
-  function _estimateWidth(text, currentFontHeight) {
+  function _estimateWidth(text, item) {
+    const currentFontHeight = fontSize(item);
     console.warn("***WARNING: _estimateWidth is being used - this is not recommended (this means you don't have canvas package installed)");
     return ~~(0.8 * text.length * currentFontHeight);
   }
@@ -15140,15 +15124,36 @@
   // measure text width if canvas is available
   function measureWidth(item, text) {
     return fontSize(item) <= 0 || !(text = textValue(item, text)) ? 0
-      : _measureWidth(text, font(item));
+      : _measureWidth(text, item);
   }
 
-  function _measureWidth(text, currentFont) {
+  function _getMeasureWidthAdjustmentForSize(text, size) {
+    // Size is in pixels
+    // For very small fonts, we get a small adjustment
+    // This compensates for issues with differences between different SVG text renderers
+    const minFontSizeToAdjust = 6;
+    const maxFontSizeToAdjust = 20;
+    const maxSizeAdjustment = 4;
+    if(size >= minFontSizeToAdjust && size <= maxFontSizeToAdjust) {
+      var adjustmentInPercent = 1.0 - (size-minFontSizeToAdjust)/(maxFontSizeToAdjust-minFontSizeToAdjust);
+      var adjustment = Math.ceil(maxSizeAdjustment * adjustmentInPercent);
+      //console.log(size,adjustmentInPercent,">>",adjustment);
+      return adjustment;
+    } else {
+      return 0;
+    }
+  }
+  function _getMeasureWidthAdjustmentForItem(text, item) {
+    return _getMeasureWidthAdjustmentForSize(text, fontSize(item));
+  }
+
+  function _measureWidth(text, item) {
+    const currentFont = font(item);
     const key = `(${currentFont}) ${text}`;
     let width = widthCache.get(key);
     if (width === undefined) {
       context$1.font = currentFont;
-      width = context$1.measureText(text).width;
+      width = context$1.measureText(text).width + _getMeasureWidthAdjustmentForItem(text,item);
       widthCache.set(key, width);
     }
     return width;
@@ -15187,12 +15192,10 @@
   function widthGetter(item) {
     if (textMetrics.width === measureWidth) {
       // we are using canvas
-      const currentFont = font(item);
-      return text => _measureWidth(text, currentFont);
+      return text => _measureWidth(text, item);
     } else {
       // we are relying on estimates
-      const currentFontHeight = fontSize(item);
-      return text => _estimateWidth(text, currentFontHeight);
+      return text => _estimateWidth(text, item);
     }
   }
 
@@ -18986,10 +18989,10 @@
     return pointish(band().paddingInner(1));
   }
 
-  var map$1 = Array.prototype.map;
+  var map = Array.prototype.map;
 
   function numbers$2(_) {
-    return map$1.call(_, toNumber);
+    return map.call(_, toNumber);
   }
 
   const slice = Array.prototype.slice;
