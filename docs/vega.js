@@ -2567,20 +2567,6 @@
     }
   }
 
-  function sequence(start, stop, step) {
-    start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
-
-    var i = -1,
-        n = Math.max(0, Math.ceil((stop - start) / step)) | 0,
-        range = new Array(n);
-
-    while (++i < n) {
-      range[i] = start + i * step;
-    }
-
-    return range;
-  }
-
   var e10 = Math.sqrt(50),
       e5 = Math.sqrt(10),
       e2 = Math.sqrt(2);
@@ -2780,6 +2766,20 @@
 
   function permute(source, keys) {
     return Array.from(keys, key => source[key]);
+  }
+
+  function sequence(start, stop, step) {
+    start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
+
+    var i = -1,
+        n = Math.max(0, Math.ceil((stop - start) / step)) | 0,
+        range = new Array(n);
+
+    while (++i < n) {
+      range[i] = start + i * step;
+    }
+
+    return range;
   }
 
   function sum(values, valueof) {
@@ -13864,6 +13864,46 @@
   const domImage = () =>
     typeof Image !== 'undefined' ? Image : null;
 
+  let NodeCanvas;
+
+  try {
+    // Allow projects to provide a reference to node-canvas directly
+    if(global.canvas) NodeCanvas = global.canvas;
+    else NodeCanvas = require('canvas');
+    if (!(NodeCanvas && NodeCanvas.createCanvas)) {
+      NodeCanvas = null;
+    }
+  } catch (error) {
+    // do nothing
+    console.warn("Could not load the node-canvas package (via require('canvas')). Rendering behaviour is undefined without the canvas package, as fonts cannot be measured.");
+  }
+
+  function nodeCanvas(w, h, type) {
+    if (NodeCanvas) {
+      try {
+        return new NodeCanvas.Canvas(w, h, type);
+      } catch (e) {
+        // do nothing, return null on error
+      }
+    }
+    return null;
+  }
+
+  const nodeImage = () =>
+    (NodeCanvas && NodeCanvas.Image) || null;
+
+  function canvas(w, h, type) {
+    var ret = domCanvas(w, h) || nodeCanvas(w, h, type) || null;
+    if(ret != null) return ret;
+    else throw "Could not get a canvas to draw onto. Are you on NodeJS? If so make sure the 'canvas' package is installed and accessible (npm install canvas)!";
+  }
+
+  function image() {
+    var ret = domImage() || nodeImage() || null;
+    if(ret != null) return ret;
+    else throw "Could not get a image to draw onto. Are you on NodeJS? If so make sure the 'canvas' package is installed and accessible (npm install canvas)!";
+  }
+
   function ResourceLoader(customLoader) {
     this._pending = 0;
     this._loader = customLoader || loader();
@@ -13899,7 +13939,7 @@
 
     loadImage(uri) {
       const loader = this,
-            Image = domImage();
+            Image = image();
       increment(loader);
 
       return loader._loader
@@ -14100,7 +14140,7 @@
     return (s2 * s * x0) + (3 * s2 * t * x1) + (3 * s * t2 * x2) + (t2 * t * x3);
   }
 
-  var context$1 = (context$1 = domCanvas(1,1))
+  var context$1 = (context$1 = canvas(1,1))
     ? context$1.getContext('2d')
     : null;
 
@@ -14230,7 +14270,7 @@
       } else {
         // not axis aligned: render gradient into a pattern (#2365)
         // this allows us to use normalized bounding box coordinates
-        const image = domCanvas(Math.ceil(w), Math.ceil(h)),
+        const image = canvas(Math.ceil(w), Math.ceil(h)),
               ictx = image.getContext('2d');
 
         ictx.scale(w, h);
@@ -14908,7 +14948,7 @@
     });
   }
 
-  var image = {
+  var image$1 = {
     type:     'image',
     tag:      'image',
     nested:   false,
@@ -15093,6 +15133,7 @@
   }
 
   function _estimateWidth(text, currentFontHeight) {
+    console.warn("***WARNING: _estimateWidth is being used - this is not recommended (this means you don't have canvas package installed)");
     return ~~(0.8 * text.length * currentFontHeight);
   }
 
@@ -15394,7 +15435,7 @@
     arc:     arc$1,
     area:    area$1,
     group:   group,
-    image:   image,
+    image:   image$1,
     line:    line$1,
     path:    path$2,
     rect:    rect,
@@ -16318,7 +16359,7 @@
 
       this._canvas = this._options.externalContext
         ? null
-        : domCanvas(1, 1, this._options.type); // instantiate a small canvas
+        : canvas(1, 1, this._options.type); // instantiate a small canvas
 
       if (el && this._canvas) {
         domClear(el, 0).appendChild(this._canvas);
@@ -17793,7 +17834,7 @@
     quantize: quantize
   });
 
-  function constant$3(x) {
+  function constants(x) {
     return function() {
       return x;
     };
@@ -17812,7 +17853,7 @@
   function normalize(a, b) {
     return (b -= (a = +a))
         ? function(x) { return (x - a) / b; }
-        : constant$3(isNaN(b) ? NaN : 0.5);
+        : constants(isNaN(b) ? NaN : 0.5);
   }
 
   function clamper(a, b) {
@@ -18291,7 +18332,7 @@
     function rescale() {
       var i = 0, n = Math.max(1, range.length);
       thresholds = new Array(n - 1);
-      while (++i < n) thresholds[i - 1] = quantile(domain, i / n);
+      while (++i < n) thresholds[i - 1] = quantileSorted(domain, i / n);
       return scale;
     }
 
@@ -21891,7 +21932,7 @@
       case Bottom:
         p.anchor = {
           y: Math.ceil(yb.y2) + offset,
-          x: mult * (w || yb.width() + 2 * yb.x1), column: anchor
+          x: mult * (w || yb.width() + 2 * yb.x1) + xb.x1, column: anchor
         };
         break;
       case TopLeft:
@@ -27463,7 +27504,7 @@
           y2 = grid.y2 || m,
           val = grid.values,
           value = val ? i => val[i] : zero,
-          can = domCanvas(x2 - x1, y2 - y1),
+          can = canvas(x2 - x1, y2 - y1),
           ctx = can.getContext('2d'),
           img = ctx.getImageData(0, 0, x2 - x1, y2 - y1),
           pix = img.data;
@@ -28013,7 +28054,7 @@
   treeProto.x = tree_x;
   treeProto.y = tree_y;
 
-  function constant$4(x) {
+  function constant$3(x) {
     return function() {
       return x;
     };
@@ -28038,7 +28079,7 @@
         strength = 1,
         iterations = 1;
 
-    if (typeof radius !== "function") radius = constant$4(radius == null ? 1 : +radius);
+    if (typeof radius !== "function") radius = constant$3(radius == null ? 1 : +radius);
 
     function force() {
       var i, n = nodes.length,
@@ -28114,7 +28155,7 @@
     };
 
     force.radius = function(_) {
-      return arguments.length ? (radius = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : radius;
+      return arguments.length ? (radius = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : radius;
     };
 
     return force;
@@ -28134,7 +28175,7 @@
     var id = index,
         strength = defaultStrength,
         strengths,
-        distance = constant$4(30),
+        distance = constant$3(30),
         distances,
         nodes,
         count,
@@ -28225,11 +28266,11 @@
     };
 
     force.strength = function(_) {
-      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$4(+_), initializeStrength(), force) : strength;
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initializeStrength(), force) : strength;
     };
 
     force.distance = function(_) {
-      return arguments.length ? (distance = typeof _ === "function" ? _ : constant$4(+_), initializeDistance(), force) : distance;
+      return arguments.length ? (distance = typeof _ === "function" ? _ : constant$3(+_), initializeDistance(), force) : distance;
     };
 
     return force;
@@ -28613,7 +28654,7 @@
         node,
         random,
         alpha,
-        strength = constant$4(-30),
+        strength = constant$3(-30),
         strengths,
         distanceMin2 = 1,
         distanceMax2 = Infinity,
@@ -28702,7 +28743,7 @@
     };
 
     force.strength = function(_) {
-      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : strength;
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : strength;
     };
 
     force.distanceMin = function(_) {
@@ -28721,12 +28762,12 @@
   }
 
   function forceX(x) {
-    var strength = constant$4(0.1),
+    var strength = constant$3(0.1),
         nodes,
         strengths,
         xz;
 
-    if (typeof x !== "function") x = constant$4(x == null ? 0 : +x);
+    if (typeof x !== "function") x = constant$3(x == null ? 0 : +x);
 
     function force(alpha) {
       for (var i = 0, n = nodes.length, node; i < n; ++i) {
@@ -28750,23 +28791,23 @@
     };
 
     force.strength = function(_) {
-      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : strength;
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : strength;
     };
 
     force.x = function(_) {
-      return arguments.length ? (x = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : x;
+      return arguments.length ? (x = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : x;
     };
 
     return force;
   }
 
   function forceY(y) {
-    var strength = constant$4(0.1),
+    var strength = constant$3(0.1),
         nodes,
         strengths,
         yz;
 
-    if (typeof y !== "function") y = constant$4(y == null ? 0 : +y);
+    if (typeof y !== "function") y = constant$3(y == null ? 0 : +y);
 
     function force(alpha) {
       for (var i = 0, n = nodes.length, node; i < n; ++i) {
@@ -28790,11 +28831,11 @@
     };
 
     force.strength = function(_) {
-      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : strength;
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : strength;
     };
 
     force.y = function(_) {
-      return arguments.length ? (y = typeof _ === "function" ? _ : constant$4(+_), initialize(), force) : y;
+      return arguments.length ? (y = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : y;
     };
 
     return force;
@@ -29628,7 +29669,7 @@
     return 0;
   }
 
-  function constant$5(x) {
+  function constant$4(x) {
     return function() {
       return x;
     };
@@ -29668,7 +29709,7 @@
     };
 
     pack.padding = function(x) {
-      return arguments.length ? (padding = typeof x === "function" ? x : constant$5(+x), pack) : padding;
+      return arguments.length ? (padding = typeof x === "function" ? x : constant$4(+x), pack) : padding;
     };
 
     return pack;
@@ -30230,7 +30271,7 @@
     };
 
     treemap.paddingInner = function(x) {
-      return arguments.length ? (paddingInner = typeof x === "function" ? x : constant$5(+x), treemap) : paddingInner;
+      return arguments.length ? (paddingInner = typeof x === "function" ? x : constant$4(+x), treemap) : paddingInner;
     };
 
     treemap.paddingOuter = function(x) {
@@ -30238,19 +30279,19 @@
     };
 
     treemap.paddingTop = function(x) {
-      return arguments.length ? (paddingTop = typeof x === "function" ? x : constant$5(+x), treemap) : paddingTop;
+      return arguments.length ? (paddingTop = typeof x === "function" ? x : constant$4(+x), treemap) : paddingTop;
     };
 
     treemap.paddingRight = function(x) {
-      return arguments.length ? (paddingRight = typeof x === "function" ? x : constant$5(+x), treemap) : paddingRight;
+      return arguments.length ? (paddingRight = typeof x === "function" ? x : constant$4(+x), treemap) : paddingRight;
     };
 
     treemap.paddingBottom = function(x) {
-      return arguments.length ? (paddingBottom = typeof x === "function" ? x : constant$5(+x), treemap) : paddingBottom;
+      return arguments.length ? (paddingBottom = typeof x === "function" ? x : constant$4(+x), treemap) : paddingBottom;
     };
 
     treemap.paddingLeft = function(x) {
-      return arguments.length ? (paddingLeft = typeof x === "function" ? x : constant$5(+x), treemap) : paddingLeft;
+      return arguments.length ? (paddingLeft = typeof x === "function" ? x : constant$4(+x), treemap) : paddingLeft;
     };
 
     return treemap;
@@ -32253,7 +32294,7 @@
         cloud = {};
 
     cloud.layout = function() {
-      var contextAndRatio = getContext(domCanvas()),
+      var contextAndRatio = getContext(canvas()),
           board = zeroArray((size[0] >> 5) * size[1]),
           bounds = null,
           n = words.length,
@@ -35887,7 +35928,7 @@
     return expr;
   }
 
-  var constants = {
+  var constants$1 = {
     NaN:       'NaN',
     E:         'Math.E',
     LN2:       'Math.LN2',
@@ -36023,7 +36064,7 @@
 
     const whitelist = opt.whitelist ? toSet(opt.whitelist) : {},
           blacklist = opt.blacklist ? toSet(opt.blacklist) : {},
-          constants$1 = opt.constants || constants,
+          constants = opt.constants || constants$1,
           functions$1 = (opt.functions || functions)(visit),
           globalvar = opt.globalvar,
           fieldvar = opt.fieldvar,
@@ -36051,8 +36092,8 @@
           return id;
         } else if (hasOwnProperty(blacklist, id)) {
           return error('Illegal identifier: ' + id);
-        } else if (hasOwnProperty(constants$1, id)) {
-          return constants$1[id];
+        } else if (hasOwnProperty(constants, id)) {
+          return constants[id];
         } else if (hasOwnProperty(whitelist, id)) {
           return id;
         } else {
@@ -36128,7 +36169,7 @@
     }
 
     codegen.functions = functions$1;
-    codegen.constants = constants$1;
+    codegen.constants = constants;
 
     return codegen;
   }
@@ -36879,7 +36920,7 @@
     fieldvar:   'datum',
     globalvar:  id => `_[${$(SignalPrefix + id)}]`,
     functions:  buildFunctions,
-    constants:  constants,
+    constants:  constants$1,
     visitors:   astVisitors
   };
 

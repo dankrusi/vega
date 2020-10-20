@@ -5,24 +5,23 @@
 }(this, (function (exports, d3Dsv, topojsonClient, d3Array, d3Format, d3Time, d3TimeFormat, d3Shape, d3Path, $$1, $$2, d3Geo, d3Color, d3Force, d3Hierarchy, d3Delaunay, d3Timer) { 'use strict';
 
   function _interopNamespace(e) {
-    if (e && e.__esModule) { return e; } else {
-      var n = Object.create(null);
-      if (e) {
-        Object.keys(e).forEach(function (k) {
-          if (k !== 'default') {
-            var d = Object.getOwnPropertyDescriptor(e, k);
-            Object.defineProperty(n, k, d.get ? d : {
-              enumerable: true,
-              get: function () {
-                return e[k];
-              }
-            });
-          }
-        });
-      }
-      n['default'] = e;
-      return Object.freeze(n);
+    if (e && e.__esModule) return e;
+    var n = Object.create(null);
+    if (e) {
+      Object.keys(e).forEach(function (k) {
+        if (k !== 'default') {
+          var d = Object.getOwnPropertyDescriptor(e, k);
+          Object.defineProperty(n, k, d.get ? d : {
+            enumerable: true,
+            get: function () {
+              return e[k];
+            }
+          });
+        }
+      });
     }
+    n['default'] = e;
+    return Object.freeze(n);
   }
 
   var $__namespace = /*#__PURE__*/_interopNamespace($$2);
@@ -10328,6 +10327,46 @@
   const domImage = () =>
     typeof Image !== 'undefined' ? Image : null;
 
+  let NodeCanvas;
+
+  try {
+    // Allow projects to provide a reference to node-canvas directly
+    if(global.canvas) NodeCanvas = global.canvas;
+    else NodeCanvas = require('canvas');
+    if (!(NodeCanvas && NodeCanvas.createCanvas)) {
+      NodeCanvas = null;
+    }
+  } catch (error) {
+    // do nothing
+    console.warn("Could not load the node-canvas package (via require('canvas')). Rendering behaviour is undefined without the canvas package, as fonts cannot be measured.");
+  }
+
+  function nodeCanvas(w, h, type) {
+    if (NodeCanvas) {
+      try {
+        return new NodeCanvas.Canvas(w, h, type);
+      } catch (e) {
+        // do nothing, return null on error
+      }
+    }
+    return null;
+  }
+
+  const nodeImage = () =>
+    (NodeCanvas && NodeCanvas.Image) || null;
+
+  function canvas(w, h, type) {
+    var ret = domCanvas(w, h) || nodeCanvas(w, h, type) || null;
+    if(ret != null) return ret;
+    else throw "Could not get a canvas to draw onto. Are you on NodeJS? If so make sure the 'canvas' package is installed and accessible (npm install canvas)!";
+  }
+
+  function image() {
+    var ret = domImage() || nodeImage() || null;
+    if(ret != null) return ret;
+    else throw "Could not get a image to draw onto. Are you on NodeJS? If so make sure the 'canvas' package is installed and accessible (npm install canvas)!";
+  }
+
   function ResourceLoader(customLoader) {
     this._pending = 0;
     this._loader = customLoader || loader();
@@ -10363,7 +10402,7 @@
 
     loadImage(uri) {
       const loader = this,
-            Image = domImage();
+            Image = image();
       increment(loader);
 
       return loader._loader
@@ -10564,7 +10603,7 @@
     return (s2 * s * x0) + (3 * s2 * t * x1) + (3 * s * t2 * x2) + (t2 * t * x3);
   }
 
-  var context$1 = (context$1 = domCanvas(1,1))
+  var context$1 = (context$1 = canvas(1,1))
     ? context$1.getContext('2d')
     : null;
 
@@ -10694,7 +10733,7 @@
       } else {
         // not axis aligned: render gradient into a pattern (#2365)
         // this allows us to use normalized bounding box coordinates
-        const image = domCanvas(Math.ceil(w), Math.ceil(h)),
+        const image = canvas(Math.ceil(w), Math.ceil(h)),
               ictx = image.getContext('2d');
 
         ictx.scale(w, h);
@@ -11372,7 +11411,7 @@
     });
   }
 
-  var image = {
+  var image$1 = {
     type:     'image',
     tag:      'image',
     nested:   false,
@@ -11557,6 +11596,7 @@
   }
 
   function _estimateWidth(text, currentFontHeight) {
+    console.warn("***WARNING: _estimateWidth is being used - this is not recommended (this means you don't have canvas package installed)");
     return ~~(0.8 * text.length * currentFontHeight);
   }
 
@@ -11858,7 +11898,7 @@
     arc:     arc$1,
     area:    area$1,
     group:   group,
-    image:   image,
+    image:   image$1,
     line:    line$1,
     path:    path$1,
     rect:    rect,
@@ -12782,7 +12822,7 @@
 
       this._canvas = this._options.externalContext
         ? null
-        : domCanvas(1, 1, this._options.type); // instantiate a small canvas
+        : canvas(1, 1, this._options.type); // instantiate a small canvas
 
       if (el && this._canvas) {
         domClear(el, 0).appendChild(this._canvas);
@@ -16182,7 +16222,7 @@
       case Bottom:
         p.anchor = {
           y: Math.ceil(yb.y2) + offset,
-          x: mult * (w || yb.width() + 2 * yb.x1), column: anchor
+          x: mult * (w || yb.width() + 2 * yb.x1) + xb.x1, column: anchor
         };
         break;
       case TopLeft:
@@ -18953,7 +18993,7 @@
           y2 = grid.y2 || m,
           val = grid.values,
           value = val ? i => val[i] : zero,
-          can = domCanvas(x2 - x1, y2 - y1),
+          can = canvas(x2 - x1, y2 - y1),
           ctx = can.getContext('2d'),
           img = ctx.getImageData(0, 0, x2 - x1, y2 - y1),
           pix = img.data;
@@ -20106,7 +20146,7 @@
         cloud = {};
 
     cloud.layout = function() {
-      var contextAndRatio = getContext(domCanvas()),
+      var contextAndRatio = getContext(canvas()),
           board = zeroArray((size[0] >> 5) * size[1]),
           bounds = null,
           n = words.length,
