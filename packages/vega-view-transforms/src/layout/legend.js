@@ -59,7 +59,7 @@ export function legendParams(g, orient, config, xb, yb, w, h) {
     case Bottom:
       p.anchor = {
         y: Math.ceil(yb.y2) + offset,
-        x: mult * (w || yb.width() + 2 * yb.x1), column: anchor
+        x: mult * (w || yb.width() + 2 * yb.x1) + xb.x1, column: anchor
       };
       break;
     case TopLeft:
