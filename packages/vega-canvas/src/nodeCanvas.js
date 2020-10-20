@@ -1,12 +1,15 @@
 let NodeCanvas;
 
 try {
-  NodeCanvas = require('canvas');
+  // Allow projects to provide a reference to node-canvas directly
+  if(global.canvas) NodeCanvas = global.canvas;
+  else NodeCanvas = require('canvas');
   if (!(NodeCanvas && NodeCanvas.createCanvas)) {
     NodeCanvas = null;
   }
 } catch (error) {
   // do nothing
+  console.warn("Could not load the node-canvas package (via require('canvas')). Rendering behaviour is undefined without the canvas package, as fonts cannot be measured.");
 }
 
 export function nodeCanvas(w, h, type) {
