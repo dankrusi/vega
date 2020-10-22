@@ -14,7 +14,7 @@ try {
 export function nodeCanvas(w, h, type) {
   if (NodeCanvas) {
     try {
-      return new NodeCanvas.Canvas(w, h, type);
+      return new NodeCanvas.Canvas(w, h); // bug: dankrusi: when rendering to SVG the type is is really important. this applies also to font measuring
     } catch (e) {
       // do nothing, return null on error
     }

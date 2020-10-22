@@ -13863,7 +13863,7 @@
   function nodeCanvas(w, h, type) {
     if (NodeCanvas) {
       try {
-        return new NodeCanvas.Canvas(w, h, type);
+        return new NodeCanvas.Canvas(w, h); // bug: dankrusi: when rendering to SVG the type is is really important. this applies also to font measuring
       } catch (e) {
         // do nothing, return null on error
       }
@@ -13875,7 +13875,7 @@
     (NodeCanvas && NodeCanvas.Image) || null;
 
   function canvas(w, h, type) {
-    var ret = domCanvas(w, h) || nodeCanvas(w, h, type) || null;
+    var ret = domCanvas(w, h) || nodeCanvas(w, h) || null;
     if(ret != null) return ret;
     else throw "Could not get a canvas to draw onto. Are you on NodeJS? If so make sure the 'canvas' package is installed and accessible (npm install canvas)!";
   }

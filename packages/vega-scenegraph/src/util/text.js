@@ -36,6 +36,8 @@ function measureWidth(item, text) {
 }
 
 function _getMeasureWidthAdjustmentForSize(text, size) {
+  const adjustmentEnabled = true;
+  if(!adjustmentEnabled) return 0;
   // Size is in pixels
   // For very small fonts, we get a small adjustment
   // This compensates for issues with differences between different SVG text renderers
